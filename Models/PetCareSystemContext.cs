@@ -119,6 +119,10 @@ public partial class PetCareSystemContext : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Bookings_Users");
+
+            entity.HasOne(d => d.Doctor).WithMany(p => p.DoctorBookings)
+                .HasForeignKey(d => d.DoctorId)
+                .HasConstraintName("FK_Bookings_Doctors");
         });
 
         modelBuilder.Entity<BookingDetail>(entity =>
@@ -145,21 +149,25 @@ public partial class PetCareSystemContext : DbContext
         {
             entity.HasKey(e => e.ConversationId).HasName("PK__Conversa__C050D877B046C5C3");
 
-            entity.Property(e => e.EndedAt).HasColumnType("datetime");
-            entity.Property(e => e.StartedAt)
+            entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
             entity.Property(e => e.Status);
-            entity.Property(e => e.Type);
 
-            entity.HasOne(d => d.Pet).WithMany(p => p.Conversations)
-                .HasForeignKey(d => d.PetId)
-                .HasConstraintName("FK_Conversations_Pets");
+            entity.HasOne(d => d.Booking)
+                .WithOne(p => p.Conversation)
+                .HasForeignKey<Conversation>(d => d.BookingId)
+                .HasConstraintName("FK_Conversations_Bookings");
 
-            entity.HasOne(d => d.User).WithMany(p => p.Conversations)
-                .HasForeignKey(d => d.UserId)
+            entity.HasOne(d => d.Customer).WithMany(p => p.CustomerConversations)
+                .HasForeignKey(d => d.CustomerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Conversations_Users");
+                .HasConstraintName("FK_Conversations_Customers");
+
+            entity.HasOne(d => d.Doctor).WithMany(p => p.DoctorConversations)
+                .HasForeignKey(d => d.DoctorId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Conversations_Doctors");
         });
 
         modelBuilder.Entity<Feedback>(entity =>

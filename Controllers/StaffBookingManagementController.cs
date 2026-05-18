@@ -163,6 +163,71 @@ namespace PetCareSystem.API.Controllers
             return Ok("Booking completed successfully");
         }
 
+        /// <summary>
+        /// Chỉ định bác sĩ cho một lịch hẹn
+        /// </summary>
+        [HttpPut("{bookingId}/assign-doctor")]
+        public async Task<IActionResult> AssignDoctor(long bookingId, [FromBody] AssignDoctorDto dto)
+        {
+            var booking = await _context.Bookings.Include(b => b.User).FirstOrDefaultAsync(b => b.BookingId == bookingId);
+            if (booking == null)
+            {
+                return NotFound("Booking not found.");
+            }
+
+            var doctor = await _context.Users
+                                     .Include(u => u.Account)
+                                     .FirstOrDefaultAsync(u => u.UserId == dto.DoctorId && u.Account.Role == (int)AccountRole.Doctor);
+            if (doctor == null)
+            {
+                return BadRequest("Invalid Doctor ID or the user is not a Doctor.");
+            }
+
+            booking.DoctorId = dto.DoctorId;
+            booking.UpdatedAt = DateTime.UtcNow;
+
+            // Create a conversation for the booking
+            var conversation = new Conversation
+            {
+                BookingId = booking.BookingId,
+                CustomerId = booking.UserId,
+                DoctorId = dto.DoctorId,
+                CreatedAt = DateTime.UtcNow,
+                Status = (int)ConversationStatus.Active
+            };
+            _context.Conversations.Add(conversation);
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Doctor assigned successfully.", conversationId = conversation.ConversationId });
+        }
+
+        /// <summary>
+        /// Lấy danh sách các bác sĩ có lịch trống trong một khoảng thời gian
+        /// </summary>
+        [HttpGet("available-doctors")]
+        public async Task<IActionResult> GetAvailableDoctors([FromQuery] DateTime startTime, [FromQuery] DateTime endTime)
+        {
+            // Find doctors who have conflicting bookings in the given time slot
+            var conflictingDoctorIds = await _context.Bookings
+                .Where(b => b.DoctorId.HasValue &&
+                            b.Status != (int)BookingStatus.Cancelled &&
+                            b.Status != (int)BookingStatus.Completed &&
+                            ((startTime < b.EndTime && endTime > b.StartTime)))
+                .Select(b => b.DoctorId.Value)
+                .Distinct()
+                .ToListAsync();
+
+            // Get all doctors and filter out the ones with conflicts
+            var availableDoctors = await _context.Users
+                .Include(u => u.Account)
+                .Where(u => u.Account.Role == (int)AccountRole.Doctor && !conflictingDoctorIds.Contains(u.UserId))
+                .Select(u => new { u.UserId, u.FullName, u.Specialization }) // Add other relevant fields
+                .ToListAsync();
+
+            return Ok(availableDoctors);
+        }
+
         private BookingDetailForStaffDto MapToBookingDetailForStaffDto(Booking booking)
         {
             return new BookingDetailForStaffDto

@@ -30,13 +30,19 @@ public partial class User
 
     public DateTime? CreatedAt { get; set; }
 
+    public string? Specialization { get; set; }
+
     public DateTime? UpdatedAt { get; set; }
 
     public virtual Account Account { get; set; } = null!;
 
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
-    public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
+    public virtual ICollection<Booking> DoctorBookings { get; set; } = new List<Booking>();
+
+    public virtual ICollection<Conversation> CustomerConversations { get; set; } = new List<Conversation>();
+
+    public virtual ICollection<Conversation> DoctorConversations { get; set; } = new List<Conversation>();
 
     public virtual ICollection<Feedback> Feedbacks { get; set; } = new List<Feedback>();
 

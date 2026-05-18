@@ -12,6 +12,8 @@ public partial class Booking
 
     public long PetId { get; set; }
 
+    public int? DoctorId { get; set; }
+
     public string? BookingCode { get; set; }
 
     public DateOnly BookingDate { get; set; }
@@ -36,7 +38,11 @@ public partial class Booking
 
     public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
 
+    public virtual User Doctor { get; set; }
+
     public virtual Pet Pet { get; set; } = null!;
 
     public virtual User User { get; set; } = null!;
+
+    public virtual Conversation Conversation { get; set; }
 }
