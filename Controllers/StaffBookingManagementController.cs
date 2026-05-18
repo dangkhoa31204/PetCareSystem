@@ -193,7 +193,7 @@ namespace PetCareSystem.API.Controllers
                 CustomerId = booking.UserId,
                 DoctorId = dto.DoctorId,
                 CreatedAt = DateTime.UtcNow,
-                Status = (int)ConversationStatus.Active
+                Status = (int)ConversationStatus.Open
             };
             _context.Conversations.Add(conversation);
 
@@ -221,7 +221,7 @@ namespace PetCareSystem.API.Controllers
             // Get all doctors and filter out the ones with conflicts
             var availableDoctors = await _context.Users
                 .Include(u => u.Account)
-                .Where(u => u.Account.Role == (int)AccountRole.Doctor && !conflictingDoctorIds.Contains(u.UserId))
+                .Where(u => u.Account.Role == (int)AccountRole.Doctor && !conflictingDoctorIds.Contains((int)u.UserId))
                 .Select(u => new { u.UserId, u.FullName, u.Specialization }) // Add other relevant fields
                 .ToListAsync();
 

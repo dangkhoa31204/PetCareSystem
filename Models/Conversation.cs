@@ -25,4 +25,6 @@ public partial class Conversation
     public virtual User Doctor { get; set; }
 
     public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
+
+    public virtual ICollection<LogAi> LogAis { get; set; } = new List<LogAi>();
 }

@@ -22,9 +22,9 @@ namespace PetCareSystem.API.Controllers
             _context = context;
         }
 
-        private int GetCurrentUserId()
+        private long GetCurrentUserId()
         {
-            return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            return long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
         }
         private string GetCurrentUserRole()
         {
@@ -60,7 +60,7 @@ namespace PetCareSystem.API.Controllers
             {
                 ConversationId = conversationId,
                 SenderId = userId,
-                SenderType = userRole == "Doctor" ? (int)MessageSenderType.Doctor : (int)MessageSenderType.Customer,
+                SenderType = userRole == "Doctor" ? (int)MessageSenderType.Doctor : (int)MessageSenderType.User,
                 Content = dto.Content,
                 MessageType = (int)MessageType.Text, // Assuming text for now
                 SentAt = System.DateTime.UtcNow

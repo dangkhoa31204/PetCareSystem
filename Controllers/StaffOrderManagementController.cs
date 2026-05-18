@@ -38,7 +38,7 @@ namespace PetCareSystem.API.Controllers
                 query = query.Where(o => o.Status == (int)status.Value);
             }
 
-            var orders = await query.OrderByDescending(o => o.OrderDate)
+            var orders = await query.OrderByDescending(o => o.CreatedAt)
                                     .Skip((pageNumber - 1) * pageSize)
                                     .Take(pageSize)
                                     .ToListAsync();
