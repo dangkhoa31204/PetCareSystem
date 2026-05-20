@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using PetCareSystem.API.Models;
+using PetCareSystem.API.Models; // Updated model key type
 using PetCareSystem.API.Dtos.Staff;
 using PetCareSystem.API.Enums;
 using System.Security.Claims;
@@ -176,8 +176,8 @@ namespace PetCareSystem.API.Controllers
             }
 
             var doctor = await _context.Users
-                                     .Include(u => u.Account)
-                                     .FirstOrDefaultAsync(u => u.UserId == dto.DoctorId && u.Account.Role == (int)AccountRole.Doctor);
+                .Include(u => u.Account)
+                .FirstOrDefaultAsync(u => u.UserId == dto.DoctorId && u.Account.Role == (int)AccountRole.Doctor);
             if (doctor == null)
             {
                 return BadRequest("Invalid Doctor ID or the user is not a Doctor.");

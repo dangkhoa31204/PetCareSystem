@@ -6,7 +6,7 @@ namespace PetCareSystem.API.Models;
 
 public partial class Conversation
 {
-    public int ConversationId { get; set; }
+    public long ConversationId { get; set; }
 
     public long BookingId { get; set; }
 

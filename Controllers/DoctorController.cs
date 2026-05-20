@@ -22,9 +22,20 @@ namespace PetCareSystem.API.Controllers
             _context = context;
         }
 
-        private int GetDoctorId()
+        private async Task<long> GetDoctorIdAsync()
         {
-            return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var accountIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!long.TryParse(accountIdClaim, out var accountId))
+            {
+                return 0;
+            }
+
+            var doctorId = await _context.Users
+                .Where(u => u.AccountId == accountId)
+                .Select(u => u.UserId)
+                .FirstOrDefaultAsync();
+
+            return doctorId;
         }
 
         /// <summary>
@@ -33,7 +44,11 @@ namespace PetCareSystem.API.Controllers
         [HttpGet("my-bookings")]
         public async Task<IActionResult> GetMyBookings([FromQuery] BookingStatus? status)
         {
-            var doctorId = GetDoctorId();
+            var doctorId = await GetDoctorIdAsync();
+            if (doctorId == 0)
+            {
+                return Unauthorized();
+            }
             var query = _context.Bookings
                 .Where(b => b.DoctorId == doctorId)
                 .Include(b => b.Pet)
@@ -57,7 +72,11 @@ namespace PetCareSystem.API.Controllers
         [HttpPut("bookings/{bookingId}/status")]
         public async Task<IActionResult> UpdateBookingStatus(int bookingId, [FromBody] UpdateBookingStatusByDoctorDto dto)
         {
-            var doctorId = GetDoctorId();
+            var doctorId = await GetDoctorIdAsync();
+            if (doctorId == 0)
+            {
+                return Unauthorized();
+            }
             var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.BookingId == bookingId && b.DoctorId == doctorId);
 
             if (booking == null)
@@ -87,7 +106,11 @@ namespace PetCareSystem.API.Controllers
         [HttpPost("bookings/{bookingId}/complete")]
         public async Task<IActionResult> CompleteBooking(int bookingId, [FromBody] AddClinicalNoteDto dto)
         {
-            var doctorId = GetDoctorId();
+            var doctorId = await GetDoctorIdAsync();
+            if (doctorId == 0)
+            {
+                return Unauthorized();
+            }
             var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.BookingId == bookingId && b.DoctorId == doctorId);
 
             if (booking == null)

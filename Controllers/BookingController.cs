@@ -267,7 +267,7 @@ namespace PetCareSystem.API.Controllers
 
         private long GetUserIdFromClaims()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            var userIdClaim = User.FindFirst("UserId");
             if (userIdClaim != null && long.TryParse(userIdClaim.Value, out long userId))
                 return userId;
             return 0;

@@ -60,6 +60,27 @@ namespace PetCareSystem.API.Controllers
             }
         };
 
+        public static bool UpdatePackagePricing(int packageType, decimal price, decimal? serviceDiscount, decimal? productDiscount)
+        {
+            if (!ProPackages.TryGetValue(packageType, out var package))
+            {
+                return false;
+            }
+
+            var updatedServiceDiscount = serviceDiscount ?? package.ServiceDiscount;
+            var updatedProductDiscount = productDiscount ?? package.ProductDiscount;
+
+            ProPackages[packageType] = (
+                package.Name,
+                price,
+                updatedServiceDiscount,
+                updatedProductDiscount,
+                package.Benefits,
+                package.AvailableServices);
+
+            return true;
+        }
+
         // GET: api/promembership/packages - Get all pro packages
         [HttpGet("packages")]
         [AllowAnonymous]

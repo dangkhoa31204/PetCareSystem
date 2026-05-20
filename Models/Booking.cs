@@ -12,7 +12,7 @@ public partial class Booking
 
     public long PetId { get; set; }
 
-    public int? DoctorId { get; set; }
+    public long? DoctorId { get; set; }
 
     public string? BookingCode { get; set; }
 
@@ -44,5 +44,5 @@ public partial class Booking
 
     public virtual User User { get; set; } = null!;
 
-    public virtual Conversation Conversation { get; set; }
+    public virtual Conversation? Conversation { get; set; }
 }

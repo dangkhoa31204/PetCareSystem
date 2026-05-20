@@ -22,9 +22,20 @@ namespace PetCareSystem.API.Controllers
             _context = context;
         }
 
-        private long GetCurrentUserId()
+        private async Task<long> GetCurrentUserIdAsync()
         {
-            return long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var accountIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!long.TryParse(accountIdClaim, out var accountId))
+            {
+                return 0;
+            }
+
+            var userId = await _context.Users
+                .Where(u => u.AccountId == accountId)
+                .Select(u => u.UserId)
+                .FirstOrDefaultAsync();
+
+            return userId;
         }
         private string GetCurrentUserRole()
         {
@@ -35,9 +46,13 @@ namespace PetCareSystem.API.Controllers
         /// Gửi tin nhắn vào một cuộc trò chuyện
         /// </summary>
         [HttpPost("conversations/{conversationId}/messages")]
-        public async Task<IActionResult> SendMessage(int conversationId, [FromBody] SendMessageDto dto)
+        public async Task<IActionResult> SendMessage(long conversationId, [FromBody] SendMessageDto dto)
         {
-            var userId = GetCurrentUserId();
+            var userId = await GetCurrentUserIdAsync();
+            if (userId == 0)
+            {
+                return Unauthorized();
+            }
             var userRole = GetCurrentUserRole();
 
             var conversation = await _context.Conversations.FindAsync(conversationId);
@@ -77,9 +92,13 @@ namespace PetCareSystem.API.Controllers
         /// Lấy lịch sử tin nhắn của một cuộc trò chuyện
         /// </summary>
         [HttpGet("conversations/{conversationId}/messages")]
-        public async Task<IActionResult> GetMessages(int conversationId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetMessages(long conversationId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            var userId = GetCurrentUserId();
+            var userId = await GetCurrentUserIdAsync();
+            if (userId == 0)
+            {
+                return Unauthorized();
+            }
             var userRole = GetCurrentUserRole();
 
             var conversation = await _context.Conversations.FindAsync(conversationId);
@@ -114,7 +133,11 @@ namespace PetCareSystem.API.Controllers
         [HttpGet("my-conversations")]
         public async Task<IActionResult> GetMyConversations()
         {
-            var userId = GetCurrentUserId();
+            var userId = await GetCurrentUserIdAsync();
+            if (userId == 0)
+            {
+                return Unauthorized();
+            }
             var userRole = GetCurrentUserRole();
 
             IQueryable<Conversation> query;
@@ -150,6 +173,41 @@ namespace PetCareSystem.API.Controllers
             });
 
             return Ok(conversationDtos);
+        }
+
+        /// <summary>
+        /// Bác sĩ xác nhận cuộc trao đổi đã hoàn tất
+        /// </summary>
+        [HttpPut("conversations/{conversationId}/close")]
+        [Authorize(Roles = "Doctor")]
+        public async Task<IActionResult> CloseConversation(long conversationId)
+        {
+            var userId = await GetCurrentUserIdAsync();
+            if (userId == 0)
+            {
+                return Unauthorized();
+            }
+
+            var conversation = await _context.Conversations.FirstOrDefaultAsync(c => c.ConversationId == conversationId);
+            if (conversation == null)
+            {
+                return NotFound("Conversation not found.");
+            }
+
+            if (conversation.DoctorId != userId)
+            {
+                return Forbid("You are not part of this conversation.");
+            }
+
+            if (conversation.Status == (int)ConversationStatus.Closed)
+            {
+                return BadRequest("Conversation is already closed.");
+            }
+
+            conversation.Status = (int)ConversationStatus.Closed;
+            await _context.SaveChangesAsync();
+
+            return Ok("Conversation closed successfully.");
         }
     }
 
