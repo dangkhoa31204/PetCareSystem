@@ -16,7 +16,7 @@ public partial class Account
 
     public int Role { get; set; }
 
-    public int? Status { get; set; }
+    public string? Status { get; set; }
 
     public DateTime? LastLoginAt { get; set; }
 

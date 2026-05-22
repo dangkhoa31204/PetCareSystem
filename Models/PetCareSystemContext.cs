@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PetCareSystem.API.Enums;
 
 namespace PetCareSystem.API.Models;
@@ -331,7 +332,10 @@ public partial class PetCareSystemContext : DbContext
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
             entity.Property(e => e.CurrentWeight).HasColumnType("decimal(5, 2)");
-            entity.Property(e => e.Gender);
+            entity.Property(e => e.Gender)
+                .HasConversion(new ValueConverter<int?, string>(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => string.IsNullOrWhiteSpace(v) ? (int?)null : int.Parse(v)));
             entity.Property(e => e.HealthStatus).HasMaxLength(255);
             entity.Property(e => e.IsNeutered).HasDefaultValue(false);
             entity.Property(e => e.Name).HasMaxLength(100);
@@ -437,6 +441,8 @@ public partial class PetCareSystemContext : DbContext
             entity.HasKey(e => e.UserId).HasName("PK__Users__1788CC4C7445433F");
 
             entity.HasIndex(e => e.AccountId, "UQ__Users__349DA5A70CB62B8B").IsUnique();
+
+            entity.Ignore(e => e.Specialization);
 
             entity.Property(e => e.Address).HasMaxLength(255);
             entity.Property(e => e.AvatarUrl)

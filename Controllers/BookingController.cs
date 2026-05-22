@@ -267,10 +267,16 @@ namespace PetCareSystem.API.Controllers
 
         private long GetUserIdFromClaims()
         {
-            var userIdClaim = User.FindFirst("UserId");
-            if (userIdClaim != null && long.TryParse(userIdClaim.Value, out long userId))
-                return userId;
-            return 0;
+            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (accountIdClaim == null || !long.TryParse(accountIdClaim.Value, out var accountId))
+            {
+                return 0;
+            }
+
+            return _context.Users
+                .Where(u => u.AccountId == accountId)
+                .Select(u => u.UserId)
+                .FirstOrDefault();
         }
     }
 }

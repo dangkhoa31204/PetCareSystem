@@ -82,7 +82,7 @@ namespace PetCareSystem.API.Controllers
 
         // POST: api/pet
         [HttpPost]
-        public async Task<ActionResult<PetDto>> CreatePet(PetDto petDto)
+        public async Task<ActionResult<PetDto>> CreatePet(CreatePetDto petDto)
         {
             var userId = GetUserIdFromClaims();
             if (userId == 0) return Unauthorized();
@@ -106,13 +106,27 @@ namespace PetCareSystem.API.Controllers
             _context.Pets.Add(pet);
             await _context.SaveChangesAsync();
 
-            petDto.PetId = pet.PetId;
-            return CreatedAtAction(nameof(GetPet), new { id = pet.PetId }, petDto);
+            var response = new PetDto
+            {
+                PetId = pet.PetId,
+                Name = pet.Name,
+                Species = pet.Species,
+                Breed = pet.Breed,
+                Gender = pet.Gender,
+                BirthDate = pet.BirthDate,
+                Color = pet.Color,
+                CurrentWeight = pet.CurrentWeight,
+                HealthStatus = pet.HealthStatus,
+                AvatarUrl = pet.AvatarUrl,
+                IsNeutered = pet.IsNeutered
+            };
+
+            return CreatedAtAction(nameof(GetPet), new { id = pet.PetId }, response);
         }
 
         // PUT: api/pet/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePet(long id, PetDto petDto)
+        public async Task<IActionResult> UpdatePet(long id, UpdatePetDto petDto)
         {
             var userId = GetUserIdFromClaims();
             if (userId == 0) return Unauthorized();
@@ -164,10 +178,16 @@ namespace PetCareSystem.API.Controllers
 
         private long GetUserIdFromClaims()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim != null && long.TryParse(userIdClaim.Value, out long userId))
-                return userId;
-            return 0;
+            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (accountIdClaim == null || !long.TryParse(accountIdClaim.Value, out var accountId))
+            {
+                return 0;
+            }
+
+            return _context.Users
+                .Where(u => u.AccountId == accountId)
+                .Select(u => u.UserId)
+                .FirstOrDefault();
         }
     }
 }
