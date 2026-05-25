@@ -29,14 +29,34 @@ namespace PetCareSystem.API.Controllers
             var userId = GetUserIdFromClaims();
             if (userId == 0) return Unauthorized();
 
-            var bookings = await _context.Bookings
+            var bookingDtos = await _context.Bookings
                 .Where(b => b.UserId == userId)
-                .Include(b => b.Pet)
-                .Include(b => b.BookingDetails)
-                    .ThenInclude(bd => bd.Service)
+                .Select(b => new BookingResponseDto
+                {
+                    BookingId = b.BookingId,
+                    BookingCode = b.BookingCode,
+                    PetId = b.PetId,
+                    PetName = b.Pet != null ? b.Pet.Name : string.Empty,
+                    BookingDate = b.BookingDate,
+                    StartTime = b.StartTime,
+                    EndTime = b.EndTime,
+                    Status = b.Status,
+                    Note = b.Note,
+                    TotalPrice = b.TotalPrice,
+                    CreatedAt = b.CreatedAt,
+                    Services = b.BookingDetails.Select(bd => new BookingDetailDto
+                    {
+                        BookingDetailId = bd.BookingDetailId,
+                        ServiceId = bd.ServiceId,
+                        ServiceName = bd.Service != null ? bd.Service.Name : string.Empty,
+                        Quantity = bd.Quantity,
+                        UnitPrice = bd.UnitPrice,
+                        SubTotal = bd.SubTotal,
+                        Note = bd.Note
+                    }).ToList()
+                })
                 .ToListAsync();
 
-            var bookingDtos = bookings.Select(b => MapToBookingResponseDto(b)).ToList();
             return Ok(bookingDtos);
         }
 
@@ -51,15 +71,36 @@ namespace PetCareSystem.API.Controllers
 
             var booking = await _context.Bookings
                 .Where(b => b.BookingId == id && b.UserId == userId)
-                .Include(b => b.Pet)
-                .Include(b => b.BookingDetails)
-                    .ThenInclude(bd => bd.Service)
+                .Select(b => new BookingResponseDto
+                {
+                    BookingId = b.BookingId,
+                    BookingCode = b.BookingCode,
+                    PetId = b.PetId,
+                    PetName = b.Pet != null ? b.Pet.Name : string.Empty,
+                    BookingDate = b.BookingDate,
+                    StartTime = b.StartTime,
+                    EndTime = b.EndTime,
+                    Status = b.Status,
+                    Note = b.Note,
+                    TotalPrice = b.TotalPrice,
+                    CreatedAt = b.CreatedAt,
+                    Services = b.BookingDetails.Select(bd => new BookingDetailDto
+                    {
+                        BookingDetailId = bd.BookingDetailId,
+                        ServiceId = bd.ServiceId,
+                        ServiceName = bd.Service != null ? bd.Service.Name : string.Empty,
+                        Quantity = bd.Quantity,
+                        UnitPrice = bd.UnitPrice,
+                        SubTotal = bd.SubTotal,
+                        Note = bd.Note
+                    }).ToList()
+                })
                 .FirstOrDefaultAsync();
 
             if (booking == null)
                 return NotFound("Booking not found");
 
-            return Ok(MapToBookingResponseDto(booking));
+            return Ok(booking);
         }
 
         /// <summary>
@@ -86,6 +127,7 @@ namespace PetCareSystem.API.Controllers
             var serviceIds = createBookingDto.Services.Select(s => s.ServiceId).ToList();
             var services = await _context.Services
                 .Where(s => serviceIds.Contains(s.ServiceId) && s.IsActive == true)
+                .Select(s => new { s.ServiceId, s.Price })
                 .ToListAsync();
 
             if (services.Count != serviceIds.Count)
@@ -171,6 +213,7 @@ namespace PetCareSystem.API.Controllers
             var serviceIds = updateBookingDto.Services.Select(s => s.ServiceId).ToList();
             var services = await _context.Services
                 .Where(s => serviceIds.Contains(s.ServiceId) && s.IsActive == true)
+                .Select(s => new { s.ServiceId, s.Price })
                 .ToListAsync();
 
             if (services.Count != serviceIds.Count)

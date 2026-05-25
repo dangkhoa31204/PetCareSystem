@@ -103,6 +103,9 @@ public partial class PetCareSystemContext : DbContext
             entity.Property(e => e.EndTime).HasColumnType("datetime");
             entity.Property(e => e.StartTime).HasColumnType("datetime");
             entity.Property(e => e.Status)
+                .HasConversion(new ValueConverter<int?, string?>(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => ParseNullableInt(v)))
                 .HasDefaultValue(1);
             entity.Property(e => e.TotalPrice)
                 .HasDefaultValue(0m)
@@ -110,6 +113,9 @@ public partial class PetCareSystemContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+
+            entity.Ignore(e => e.DoctorId);
+            entity.Ignore(e => e.Doctor);
 
             entity.HasOne(d => d.Pet).WithMany(p => p.Bookings)
                 .HasForeignKey(d => d.PetId)
@@ -121,9 +127,6 @@ public partial class PetCareSystemContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Bookings_Users");
 
-            entity.HasOne(d => d.Doctor).WithMany(p => p.DoctorBookings)
-                .HasForeignKey(d => d.DoctorId)
-                .HasConstraintName("FK_Bookings_Doctors");
         });
 
         modelBuilder.Entity<BookingDetail>(entity =>
@@ -443,6 +446,7 @@ public partial class PetCareSystemContext : DbContext
             entity.HasIndex(e => e.AccountId, "UQ__Users__349DA5A70CB62B8B").IsUnique();
 
             entity.Ignore(e => e.Specialization);
+            entity.Ignore(e => e.DoctorBookings);
 
             entity.Property(e => e.Address).HasMaxLength(255);
             entity.Property(e => e.AvatarUrl)
@@ -471,67 +475,12 @@ public partial class PetCareSystemContext : DbContext
                 .HasConstraintName("FK_Users_Accounts");
         });
 
-        modelBuilder.Entity<MembershipPlan>(entity =>
-        {
-            entity.HasKey(e => e.MembershipPlanId);
-
-            entity.Property(e => e.Name)
-                .HasMaxLength(100)
-                .IsUnicode(false);
-            entity.Property(e => e.Price)
-                .HasColumnType("decimal(10, 2)");
-            entity.Property(e => e.DurationDays);
-            entity.Property(e => e.Description);
-            entity.Property(e => e.IsActive)
-                .HasDefaultValue(true);
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("(getdate())")
-                .HasColumnType("datetime");
-            entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("(getdate())")
-                .HasColumnType("datetime");
-        });
-
-        modelBuilder.Entity<UserMembership>(entity =>
-        {
-            entity.HasKey(e => e.UserMembershipId);
-
-            entity.HasIndex(e => e.UserId);
-            entity.HasIndex(e => e.MembershipPlanId);
-            entity.HasIndex(e => e.PaymentId);
-
-            entity.Property(e => e.StartDate)
-                .HasColumnType("datetime");
-            entity.Property(e => e.EndDate)
-                .HasColumnType("datetime");
-            entity.Property(e => e.PricePaid)
-                .HasColumnType("decimal(10, 2)");
-            entity.Property(e => e.Status)
-                .HasDefaultValue(1);
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("(getdate())")
-                .HasColumnType("datetime");
-
-            entity.HasOne(d => d.User)
-                .WithMany(p => p.UserMemberships)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_UserMemberships_Users");
-
-            entity.HasOne(d => d.MembershipPlan)
-                .WithMany(p => p.UserMemberships)
-                .HasForeignKey(d => d.MembershipPlanId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_UserMemberships_MembershipPlans");
-
-            entity.HasOne(d => d.Payment)
-                .WithMany()
-                .HasForeignKey(d => d.PaymentId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("FK_UserMemberships_Payments");
-        });
-
         OnModelCreatingPartial(modelBuilder);
+    }
+
+    private static int? ParseNullableInt(string? value)
+    {
+        return int.TryParse(value, out var parsed) ? parsed : null;
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
