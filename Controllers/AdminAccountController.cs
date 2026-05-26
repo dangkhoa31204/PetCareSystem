@@ -34,7 +34,7 @@ namespace PetCareSystem.API.Controllers
 
             if (status.HasValue)
             {
-                query = query.Where(a => a.Status == status.Value.ToString());
+                query = query.Where(a => a.Status == (int)status.Value);
             }
 
             var accounts = await query
@@ -80,7 +80,7 @@ namespace PetCareSystem.API.Controllers
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Role = (int)dto.Role,
-                Status = (dto.Status ?? AccountStatus.Active).ToString(),
+                Status = (int)(dto.Status ?? AccountStatus.Active),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -135,7 +135,7 @@ namespace PetCareSystem.API.Controllers
 
             if (dto.Status.HasValue)
             {
-                account.Status = dto.Status.Value.ToString();
+                account.Status = (int)dto.Status.Value;
             }
 
             if (account.User != null)
@@ -196,7 +196,7 @@ namespace PetCareSystem.API.Controllers
                 Username = account.Username,
                 Email = account.Email,
                 Role = (AccountRole)account.Role,
-                Status = Enum.TryParse<AccountStatus>(account.Status, out var parsedStatus) ? parsedStatus : null,
+                Status = account.Status.HasValue ? (AccountStatus)account.Status.Value : null,
                 FullName = account.User?.FullName ?? string.Empty,
                 Phone = account.User?.Phone,
                 Specialization = account.User?.Specialization,

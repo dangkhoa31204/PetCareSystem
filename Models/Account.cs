@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using PetCareSystem.API.Enums;
 
@@ -16,7 +16,7 @@ public partial class Account
 
     public int Role { get; set; }
 
-    public string? Status { get; set; }
+    public int? Status { get; set; }
 
     public DateTime? LastLoginAt { get; set; }
 
