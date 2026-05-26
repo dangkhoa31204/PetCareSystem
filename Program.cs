@@ -5,6 +5,7 @@ using Microsoft.OpenApi.Models;
 using PetCareSystem.API.Models;
 using System.Text;
 
+using PetCareSystem.API.Services.Cloudinary;
 using PetCareSystem.API.Services.Vnpay;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +16,8 @@ builder.Services.AddDbContext<PetCareSystemContext>(options =>
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddScoped<IVnpayService, VnpayService>();
+builder.Services.Configure<CloudinaryOptions>(builder.Configuration.GetSection("CloudinarySettings"));
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

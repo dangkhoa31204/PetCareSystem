@@ -83,6 +83,9 @@ public partial class PetCareSystemContext : DbContext
                 .IsUnicode(false);
             entity.Property(e => e.Role);
             entity.Property(e => e.Status)
+                .HasConversion(new ValueConverter<int?, string?>(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => ParseNullableInt(v)))
                 .HasDefaultValue(1);
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("(getdate())")
