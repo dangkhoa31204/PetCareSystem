@@ -114,53 +114,13 @@ namespace PetCareSystem.API.Controllers
             if (booking == null)
                 return NotFound("Booking not found");
 
-            // Validate status transition
-            var currentStatus = (BookingStatus)booking.Status.GetValueOrDefault(0);
-            var newStatus = (BookingStatus)updateDto.Status;
-
-            // Allowed transitions
-            var allowedTransitions = new Dictionary<BookingStatus, List<BookingStatus>>
+            var result = await TryUpdateBookingStatusAsync(booking, updateDto.Status);
+            if (result != null)
             {
-                { BookingStatus.Pending, new List<BookingStatus> { BookingStatus.Confirmed, BookingStatus.Cancelled } },
-                { BookingStatus.Confirmed, new List<BookingStatus> { BookingStatus.InProgress, BookingStatus.Cancelled } },
-                { BookingStatus.InProgress, new List<BookingStatus> { BookingStatus.Completed, BookingStatus.Cancelled } },
-                { BookingStatus.Completed, new List<BookingStatus> { } },
-                { BookingStatus.Cancelled, new List<BookingStatus> { } }
-            };
-
-            if (!allowedTransitions.ContainsKey(currentStatus) || !allowedTransitions[currentStatus].Contains(newStatus))
-                return BadRequest($"Cannot transition from {currentStatus} to {newStatus}");
-
-            booking.Status = updateDto.Status;
-            booking.UpdatedAt = DateTime.UtcNow;
-
-            _context.Bookings.Update(booking);
-            await _context.SaveChangesAsync();
+                return result;
+            }
 
             return Ok("Booking status updated successfully");
-        }
-
-        // PUT: api/staff/bookingmanagement/{bookingId}/complete
-        [HttpPut("{bookingId}/complete")]
-        public async Task<IActionResult> CompleteBooking(long bookingId)
-        {
-            var booking = await _context.Bookings
-                .FirstOrDefaultAsync(b => b.BookingId == bookingId);
-
-            if (booking == null)
-                return NotFound("Booking not found");
-
-            if (booking.Status != (int)BookingStatus.InProgress)
-                return BadRequest("Only in-progress bookings can be completed");
-
-            booking.Status = (int)BookingStatus.Completed;
-            booking.EndTime = DateTime.UtcNow;
-            booking.UpdatedAt = DateTime.UtcNow;
-
-            _context.Bookings.Update(booking);
-            await _context.SaveChangesAsync();
-
-            return Ok("Booking completed successfully");
         }
 
         /// <summary>
@@ -226,6 +186,36 @@ namespace PetCareSystem.API.Controllers
                 .ToListAsync();
 
             return Ok(availableDoctors);
+        }
+
+        private async Task<IActionResult?> TryUpdateBookingStatusAsync(Booking booking, int status, bool updateEndTime = false)
+        {
+            var currentStatus = (BookingStatus)booking.Status.GetValueOrDefault(0);
+            var newStatus = (BookingStatus)status;
+
+            var allowedTransitions = new Dictionary<BookingStatus, List<BookingStatus>>
+            {
+                { BookingStatus.Pending, new List<BookingStatus> { BookingStatus.Confirmed, BookingStatus.Cancelled } },
+                { BookingStatus.Confirmed, new List<BookingStatus> { BookingStatus.InProgress, BookingStatus.Cancelled } },
+                { BookingStatus.InProgress, new List<BookingStatus> { BookingStatus.Completed, BookingStatus.Cancelled } },
+                { BookingStatus.Completed, new List<BookingStatus>() },
+                { BookingStatus.Cancelled, new List<BookingStatus>() }
+            };
+
+            if (!allowedTransitions.ContainsKey(currentStatus) || !allowedTransitions[currentStatus].Contains(newStatus))
+                return BadRequest($"Cannot transition from {currentStatus} to {newStatus}");
+
+            booking.Status = status;
+            if (updateEndTime)
+            {
+                booking.EndTime = DateTime.UtcNow;
+            }
+
+            booking.UpdatedAt = DateTime.UtcNow;
+            _context.Bookings.Update(booking);
+            await _context.SaveChangesAsync();
+
+            return null;
         }
 
         private BookingDetailForStaffDto MapToBookingDetailForStaffDto(Booking booking)

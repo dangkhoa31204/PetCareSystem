@@ -80,6 +80,31 @@ namespace PetCareSystem.API.Controllers
             return Ok(petDto);
         }
 
+        // GET: api/pet/user/{userId} - Get all pets by user id
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<List<PetDto>>> GetPetsByUserId(long userId)
+        {
+            var pets = await _context.Pets
+                .Where(p => p.UserId == userId)
+                .Select(p => new PetDto
+                {
+                    PetId = p.PetId,
+                    Name = p.Name,
+                    Species = p.Species,
+                    Breed = p.Breed,
+                    Gender = p.Gender,
+                    BirthDate = p.BirthDate,
+                    Color = p.Color,
+                    CurrentWeight = p.CurrentWeight,
+                    HealthStatus = p.HealthStatus,
+                    AvatarUrl = p.AvatarUrl,
+                    IsNeutered = p.IsNeutered
+                })
+                .ToListAsync();
+
+            return Ok(pets);
+        }
+
         // POST: api/pet
         [HttpPost]
         public async Task<ActionResult<PetDto>> CreatePet(CreatePetDto petDto)
