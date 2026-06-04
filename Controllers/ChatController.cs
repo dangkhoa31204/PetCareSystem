@@ -152,24 +152,26 @@ namespace PetCareSystem.API.Controllers
             }
 
             var conversations = await query
-                .Include(c => c.Booking)
+                .Include(c => c.Pet)
                 .Include(c => c.Customer)
                 .Include(c => c.Doctor)
-                .OrderByDescending(c => c.CreatedAt)
+                .OrderByDescending(c => c.StartedAt)
                 .ToListAsync();
 
             // Map to a DTO to avoid circular references and expose only needed data
             var conversationDtos = conversations.Select(c => new
             {
                 c.ConversationId,
-                c.BookingId,
-                BookingInfo = c.Booking?.Note, // Or some other identifier
+                c.PetId,
+                PetName = c.Pet?.Name,
                 CustomerId = c.CustomerId,
                 CustomerName = c.Customer?.FullName,
                 DoctorId = c.DoctorId,
                 DoctorName = c.Doctor?.FullName,
+                c.Type,
                 c.Status,
-                c.CreatedAt
+                c.StartedAt,
+                c.EndedAt
             });
 
             return Ok(conversationDtos);

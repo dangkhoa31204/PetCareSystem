@@ -44,5 +44,4 @@ public partial class Booking
 
     public virtual User User { get; set; } = null!;
 
-    public virtual Conversation? Conversation { get; set; }
 }

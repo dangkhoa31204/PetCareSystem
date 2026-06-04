@@ -160,15 +160,15 @@ public partial class PetCareSystemContext : DbContext
         {
             entity.HasKey(e => e.ConversationId).HasName("PK__Conversa__C050D877B046C5C3");
 
-            entity.Property(e => e.CreatedAt)
+            entity.Property(e => e.CustomerId)
+                .HasColumnName("UserId");
+            entity.Property(e => e.StartedAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.EndedAt)
+                .HasColumnType("datetime");
             entity.Property(e => e.Status);
-
-            entity.HasOne(d => d.Booking)
-                .WithOne(p => p.Conversation)
-                .HasForeignKey<Conversation>(d => d.BookingId)
-                .HasConstraintName("FK_Conversations_Bookings");
+            entity.Property(e => e.Type);
 
             entity.HasOne(d => d.Customer).WithMany(p => p.CustomerConversations)
                 .HasForeignKey(d => d.CustomerId)
@@ -179,6 +179,11 @@ public partial class PetCareSystemContext : DbContext
                 .HasForeignKey(d => d.DoctorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Conversations_Doctors");
+
+            entity.HasOne(d => d.Pet).WithMany(p => p.Conversations)
+                .HasForeignKey(d => d.PetId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Conversations_Pets");
         });
 
         modelBuilder.Entity<Feedback>(entity =>

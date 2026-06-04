@@ -140,19 +140,26 @@ namespace PetCareSystem.API.Controllers
                 .FirstOrDefaultAsync(u => u.UserId == dto.DoctorId && u.Account.Role == (int)AccountRole.Doctor);
             if (doctor == null)
             {
+                doctor = await _context.Users
+                    .Include(u => u.Account)
+                    .FirstOrDefaultAsync(u => u.AccountId == dto.DoctorId && u.Account.Role == (int)AccountRole.Doctor);
+            }
+            if (doctor == null)
+            {
                 return BadRequest("Invalid Doctor ID or the user is not a Doctor.");
             }
 
-            booking.DoctorId = dto.DoctorId;
+            booking.DoctorId = doctor.UserId;
             booking.UpdatedAt = DateTime.UtcNow;
 
             // Create a conversation for the booking
             var conversation = new Conversation
             {
-                BookingId = booking.BookingId,
                 CustomerId = booking.UserId,
-                DoctorId = dto.DoctorId,
-                CreatedAt = DateTime.UtcNow,
+                DoctorId = doctor.UserId,
+                PetId = booking.PetId,
+                Type = (int)ConversationType.Doctor,
+                StartedAt = DateTime.UtcNow,
                 Status = (int)ConversationStatus.Open
             };
             _context.Conversations.Add(conversation);
