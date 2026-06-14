@@ -129,10 +129,22 @@ namespace PetCareSystem.API.Controllers
         [HttpPut("{bookingId}/assign-doctor")]
         public async Task<IActionResult> AssignDoctor(long bookingId, [FromBody] AssignDoctorDto dto)
         {
-            var booking = await _context.Bookings.Include(b => b.User).FirstOrDefaultAsync(b => b.BookingId == bookingId);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var booking = await _context.Bookings
+                .Include(b => b.User)
+                .FirstOrDefaultAsync(b => b.BookingId == bookingId);
             if (booking == null)
             {
                 return NotFound("Booking not found.");
+            }
+
+            if (booking.Status == (int)BookingStatus.Cancelled || booking.Status == (int)BookingStatus.Completed)
+            {
+                return BadRequest("Cannot assign a doctor to a cancelled or completed booking.");
             }
 
             var doctor = await _context.Users
@@ -149,24 +161,43 @@ namespace PetCareSystem.API.Controllers
                 return BadRequest("Invalid Doctor ID or the user is not a Doctor.");
             }
 
-            booking.DoctorId = doctor.UserId;
+            if (booking.Status == (int)BookingStatus.Pending)
+            {
+                booking.Status = (int)BookingStatus.Confirmed;
+            }
             booking.UpdatedAt = DateTime.UtcNow;
 
-            // Create a conversation for the booking
-            var conversation = new Conversation
+            var conversation = await _context.Conversations.FirstOrDefaultAsync(c =>
+                c.CustomerId == booking.UserId &&
+                c.DoctorId == doctor.UserId &&
+                c.PetId == booking.PetId &&
+                c.Type == (int)ConversationType.Doctor &&
+                c.Status == (int)ConversationStatus.Open);
+
+            if (conversation == null)
             {
-                CustomerId = booking.UserId,
-                DoctorId = doctor.UserId,
-                PetId = booking.PetId,
-                Type = (int)ConversationType.Doctor,
-                StartedAt = DateTime.UtcNow,
-                Status = (int)ConversationStatus.Open
-            };
-            _context.Conversations.Add(conversation);
+                conversation = new Conversation
+                {
+                    CustomerId = booking.UserId,
+                    DoctorId = doctor.UserId,
+                    PetId = booking.PetId,
+                    Type = (int)ConversationType.Doctor,
+                    StartedAt = DateTime.UtcNow,
+                    Status = (int)ConversationStatus.Open
+                };
+                _context.Conversations.Add(conversation);
+            }
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Doctor assigned successfully.", conversationId = conversation.ConversationId });
+            return Ok(new
+            {
+                message = "Doctor assigned successfully.",
+                bookingId = booking.BookingId,
+                doctorId = doctor.UserId,
+                status = booking.Status,
+                conversationId = conversation.ConversationId
+            });
         }
 
         /// <summary>
@@ -175,24 +206,43 @@ namespace PetCareSystem.API.Controllers
         [HttpGet("available-doctors")]
         public async Task<IActionResult> GetAvailableDoctors([FromQuery] DateTime startTime, [FromQuery] DateTime endTime)
         {
-            // Find doctors who have conflicting bookings in the given time slot
-            var conflictingDoctorIds = await _context.Bookings
-                .Where(b => b.DoctorId.HasValue &&
-                            b.Status != (int)BookingStatus.Cancelled &&
-                            b.Status != (int)BookingStatus.Completed &&
-                            ((startTime < b.EndTime && endTime > b.StartTime)))
-                .Select(b => b.DoctorId.Value)
-                .Distinct()
-                .ToListAsync();
-
-            // Get all doctors and filter out the ones with conflicts
-            var availableDoctors = await _context.Users
+            var doctors = await _context.Users
                 .Include(u => u.Account)
-                .Where(u => u.Account.Role == (int)AccountRole.Doctor && !conflictingDoctorIds.Contains((int)u.UserId))
-                .Select(u => new { u.UserId, u.FullName, u.Specialization }) // Add other relevant fields
+                .Where(u => u.Account.Role == (int)AccountRole.Doctor)
+                .Select(u => new { u.UserId, u.FullName, u.Specialization })
                 .ToListAsync();
 
-            return Ok(availableDoctors);
+            return Ok(doctors);
+        }
+
+        /// <summary>
+        /// Lấy danh sách tất cả bác sĩ (role = 3) để staff gán cho lịch hẹn
+        /// </summary>
+        [HttpGet("doctors")]
+        public async Task<IActionResult> GetDoctors([FromQuery] string? search)
+        {
+            var keyword = search?.Trim().ToLower();
+
+            var doctors = await _context.Database
+                .SqlQueryRaw<DoctorDto>(@"
+                    SELECT u.UserId, u.AccountId, u.FullName, u.Phone, a.Email, u.AvatarUrl,
+                           NULL AS Specialization
+                    FROM Users u
+                    INNER JOIN Accounts a ON u.AccountId = a.AccountId
+                    WHERE a.Role = 3
+                ")
+                .ToListAsync();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                doctors = doctors.Where(d =>
+                    d.FullName.ToLower().Contains(keyword) ||
+                    (d.Specialization != null && d.Specialization.ToLower().Contains(keyword)) ||
+                    (d.Phone != null && d.Phone.Contains(keyword))
+                ).ToList();
+            }
+
+            return Ok(doctors.OrderBy(d => d.FullName));
         }
 
         private async Task<IActionResult?> TryUpdateBookingStatusAsync(Booking booking, int status, bool updateEndTime = false)

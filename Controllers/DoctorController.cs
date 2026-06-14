@@ -49,8 +49,14 @@ namespace PetCareSystem.API.Controllers
             {
                 return Unauthorized();
             }
+            var assignedPetIds = _context.Conversations
+                .Where(c => c.DoctorId == doctorId &&
+                            c.Type == (int)ConversationType.Doctor &&
+                            c.Status == (int)ConversationStatus.Open)
+                .Select(c => c.PetId);
+
             var query = _context.Bookings
-                .Where(b => b.DoctorId == doctorId)
+                .Where(b => assignedPetIds.Contains(b.PetId))
                 .Include(b => b.Pet)
                 .Include(b => b.User)
                 .OrderByDescending(b => b.BookingDate)
@@ -77,9 +83,21 @@ namespace PetCareSystem.API.Controllers
             {
                 return Unauthorized();
             }
-            var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.BookingId == bookingId && b.DoctorId == doctorId);
+            var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.BookingId == bookingId);
 
             if (booking == null)
+            {
+                return NotFound("Booking not found.");
+            }
+
+            var isAssigned = await _context.Conversations.AnyAsync(c =>
+                c.DoctorId == doctorId &&
+                c.CustomerId == booking.UserId &&
+                c.PetId == booking.PetId &&
+                c.Type == (int)ConversationType.Doctor &&
+                c.Status == (int)ConversationStatus.Open);
+
+            if (!isAssigned)
             {
                 return NotFound("Booking not found or you are not assigned to this booking.");
             }
@@ -111,9 +129,21 @@ namespace PetCareSystem.API.Controllers
             {
                 return Unauthorized();
             }
-            var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.BookingId == bookingId && b.DoctorId == doctorId);
+            var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.BookingId == bookingId);
 
             if (booking == null)
+            {
+                return NotFound("Booking not found.");
+            }
+
+            var isAssigned = await _context.Conversations.AnyAsync(c =>
+                c.DoctorId == doctorId &&
+                c.CustomerId == booking.UserId &&
+                c.PetId == booking.PetId &&
+                c.Type == (int)ConversationType.Doctor &&
+                c.Status == (int)ConversationStatus.Open);
+
+            if (!isAssigned)
             {
                 return NotFound("Booking not found or you are not assigned to this booking.");
             }

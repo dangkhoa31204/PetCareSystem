@@ -38,7 +38,9 @@ namespace PetCareSystem.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            var existingAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Email == registerDto.Email);
+            var email = NormalizeEmail(registerDto.Email);
+
+            var existingAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Email == email);
             if (existingAccount != null)
             {
                 return BadRequest("Email already exists.");
@@ -46,17 +48,18 @@ namespace PetCareSystem.API.Controllers
 
             var account = new Account
             {
-                Username = registerDto.Email, // Or generate a unique username
-                Email = registerDto.Email,
+                Username = email,
+                Email = email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
                 Role = (int)AccountRole.Customer,
+                Status = (int)AccountStatus.Active,
                 CreatedAt = DateTime.UtcNow
             };
 
             var user = new User
             {
-                FullName = registerDto.FullName,
-                Phone = registerDto.Phone,
+                FullName = registerDto.FullName.Trim(),
+                Phone = registerDto.Phone.Trim(),
                 CreatedAt = DateTime.UtcNow,
                 Account = account
             };
@@ -73,9 +76,16 @@ namespace PetCareSystem.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto loginDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var email = NormalizeEmail(loginDto.Email);
+
             var account = await _context.Accounts
                 .Include(a => a.User)
-                .FirstOrDefaultAsync(a => a.Email == loginDto.Email);
+                .FirstOrDefaultAsync(a => a.Email == email);
 
             if (account == null)
             {
@@ -86,6 +96,15 @@ namespace PetCareSystem.API.Controllers
             {
                 return Unauthorized("Invalid email or password.");
             }
+
+            if (account.Status.HasValue && account.Status.Value != (int)AccountStatus.Active)
+            {
+                return Unauthorized("Account is inactive or banned.");
+            }
+
+            account.LastLoginAt = DateTime.UtcNow;
+            account.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
 
             var token = CreateToken(account);
 
@@ -132,6 +151,11 @@ namespace PetCareSystem.API.Controllers
             };
 
             return Ok(response);
+        }
+
+        private static string NormalizeEmail(string email)
+        {
+            return email.Trim().ToLowerInvariant();
         }
 
         private string CreateToken(Account account)
