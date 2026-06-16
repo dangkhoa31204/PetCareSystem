@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using PetCareSystem.API.Models;
 using PetCareSystem.API.Enums;
+using PetCareSystem.API.Hubs;
 using System.Security.Claims;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,10 +18,12 @@ namespace PetCareSystem.API.Controllers
     public class ChatController : ControllerBase
     {
         private readonly PetCareSystemContext _context;
+        private readonly IHubContext<ChatHub> _hubContext;
 
-        public ChatController(PetCareSystemContext context)
+        public ChatController(PetCareSystemContext context, IHubContext<ChatHub> hubContext)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         private async Task<long> GetCurrentUserIdAsync()
@@ -84,8 +88,26 @@ namespace PetCareSystem.API.Controllers
             _context.Messages.Add(message);
             await _context.SaveChangesAsync();
 
-            // In a real-time app, you would push this message via SignalR here
-            return Ok(message);
+            // Lấy tên sender để gửi kèm
+            var sender = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+
+            // Push message qua SignalR real-time
+            var messageDto = new
+            {
+                message.MessageId,
+                message.ConversationId,
+                message.SenderId,
+                SenderName = sender?.FullName ?? "Unknown",
+                SenderAvatar = sender?.AvatarUrl,
+                message.SenderType,
+                message.Content,
+                message.MessageType,
+                message.SentAt
+            };
+
+            await _hubContext.Clients.Group($"conversation_{conversationId}").SendAsync("ReceiveMessage", messageDto);
+
+            return Ok(messageDto);
         }
 
         /// <summary>
@@ -207,7 +229,15 @@ namespace PetCareSystem.API.Controllers
             }
 
             conversation.Status = (int)ConversationStatus.Closed;
+            conversation.EndedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            // Thông báo qua SignalR
+            await _hubContext.Clients.Group($"conversation_{conversationId}").SendAsync("ConversationClosed", new
+            {
+                ConversationId = conversationId,
+                ClosedAt = conversation.EndedAt
+            });
 
             return Ok("Conversation closed successfully.");
         }
