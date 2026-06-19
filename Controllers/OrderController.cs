@@ -96,7 +96,7 @@ namespace PetCareSystem.API.Controllers
             var order = new Order
             {
                 UserId = userId,
-                BookingId = createOrderDto.BookingId,
+                BookingId = createOrderDto.BookingId > 0 ? createOrderDto.BookingId : null,
                 OrderCode = GenerateOrderCode(),
                 OrderType = (int)OrderType.Product,
                 Status = (int)OrderStatus.Pending,
@@ -296,7 +296,7 @@ namespace PetCareSystem.API.Controllers
 
         private string GenerateOrderCode()
         {
-            return "ORD" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") + new Random().Next(1000, 9999);
+            return "ORD" + DateTime.UtcNow.ToString("yyMMddHHmmss") + new Random().Next(1000, 9999);
         }
 
         private long GetUserIdFromClaims()

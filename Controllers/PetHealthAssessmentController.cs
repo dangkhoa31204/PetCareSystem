@@ -3,13 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetCareSystem.API.Dtos.Customer;
 using PetCareSystem.API.Models;
-using PetCareSystem.API.Services.Gemini;
+using System;
+using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace PetCareSystem.API.Controllers
 {
     /// <summary>
-    /// API đánh giá sức khỏe thú cưng bằng Gemini AI
+    /// API đánh giá sức khỏe thú cưng qua trắc nghiệm
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
@@ -17,21 +19,19 @@ namespace PetCareSystem.API.Controllers
     public class PetHealthAssessmentController : ControllerBase
     {
         private readonly PetCareSystemContext _context;
-        private readonly IGeminiService _geminiService;
 
-        public PetHealthAssessmentController(PetCareSystemContext context, IGeminiService geminiService)
+        public PetHealthAssessmentController(PetCareSystemContext context)
         {
             _context = context;
-            _geminiService = geminiService;
         }
 
         /// <summary>
-        /// Gửi form đánh giá sức khỏe thú cưng - AI sẽ phân tích và trả về kết quả
+        /// Lưu kết quả bài trắc nghiệm sức khỏe thú cưng vào lịch sử LogAI
         /// </summary>
-        /// <param name="request">Form đánh giá sức khỏe</param>
-        /// <returns>Kết quả đánh giá từ Gemini AI</returns>
+        /// <param name="request">Kết quả bài trắc nghiệm</param>
+        /// <returns>Kết quả lưu Log thành công</returns>
         [HttpPost]
-        public async Task<ActionResult<PetHealthAssessmentResponseDto>> AssessPetHealth(PetHealthAssessmentRequestDto request)
+        public async Task<IActionResult> SaveQuizResult([FromBody] PetHealthQuizDto request)
         {
             var userId = GetUserIdFromClaims();
             if (userId == 0) return Unauthorized();
@@ -44,49 +44,39 @@ namespace PetCareSystem.API.Controllers
             if (pet == null)
                 return NotFound("Không tìm thấy thú cưng hoặc thú cưng không thuộc về bạn");
 
-            // Gọi Gemini AI đánh giá
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            PetHealthAssessmentResponseDto result;
-
-            try
+            // Serialize prompt (câu hỏi/trả lời) và response (kết quả/sản phẩm) dạng JSON để FE dễ dàng parse
+            var promptJson = System.Text.Json.JsonSerializer.Serialize(new
             {
-                result = await _geminiService.AssessPetHealthAsync(pet, request);
-            }
-            catch (HttpRequestException ex)
+                quizCategoryId = request.QuizCategoryId,
+                quizCategoryTitle = request.QuizCategoryTitle,
+                totalScore = request.TotalScore,
+                maxScore = request.MaxScore,
+                scorePercent = request.ScorePercent,
+                answers = request.Answers
+            });
+
+            var responseJson = System.Text.Json.JsonSerializer.Serialize(new
             {
-                return StatusCode(502, new { message = "Lỗi kết nối tới dịch vụ AI", error = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return StatusCode(500, new { message = "Lỗi xử lý phản hồi AI", error = ex.Message });
-            }
-
-            stopwatch.Stop();
-
-            // Lưu log vào bảng LogAI
-            var prompt = $"Đánh giá sức khỏe: {pet.Name} ({pet.Species}/{pet.Breed}) - " +
-                         $"Hoạt động: {request.ActivityLevel}, Ăn uống: {request.AppetiteLevel}, " +
-                         $"Nước: {request.WaterIntake}, Phân: {request.StoolCondition}, " +
-                         $"Da/Lông: {request.SkinCoatCondition}" +
-                         (!string.IsNullOrEmpty(request.Symptoms) ? $", Triệu chứng: {request.Symptoms}" : "");
-
-            var responseText = $"Điểm: {result.OverallHealthScore}/10 ({result.HealthLevel}) - {result.Assessment}";
+                result = request.Result,
+                recommendedProductTags = request.RecommendedProductTags,
+                recommendedProducts = request.RecommendedProducts
+            });
 
             var logAi = new LogAi
             {
                 UserId = userId,
                 PetId = pet.PetId,
-                Prompt = prompt,
-                Response = responseText,
-                ModelName = "gemini-2.0-flash",
-                ResponseTimeMs = (int)stopwatch.ElapsedMilliseconds,
+                Prompt = promptJson,
+                Response = responseJson,
+                ModelName = "PetHealthQuiz",
+                ResponseTimeMs = 0,
                 CreatedAt = DateTime.UtcNow
             };
 
             _context.LogAis.Add(logAi);
             await _context.SaveChangesAsync();
 
-            return Ok(result);
+            return Ok(new { success = true, logId = logAi.LogAiid, message = "Lưu kết quả trắc nghiệm thành công" });
         }
 
         /// <summary>

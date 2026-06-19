@@ -8,6 +8,7 @@ using System.Text;
 using PetCareSystem.API.Services.Cloudinary;
 using PetCareSystem.API.Services.Gemini;
 using PetCareSystem.API.Services.Vnpay;
+using PetCareSystem.API.Services.Sepay;
 using PetCareSystem.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,7 @@ builder.Services.AddDbContext<PetCareSystemContext>(options =>
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddScoped<IVnpayService, VnpayService>();
+builder.Services.AddScoped<ISepayService, SepayService>();
 builder.Services.Configure<CloudinaryOptions>(builder.Configuration.GetSection("CloudinarySettings"));
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
@@ -99,7 +101,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll",
         builder =>
         {
-            builder.SetIsOriginAllowed(_ => true)
+            builder.WithOrigins("https://exe-101-klabt.vercel.app", "https://www.klabtpets.com", "https://klabtpets.com")
+                   .SetIsOriginAllowed(_ => true)
                    .AllowAnyMethod()
                    .AllowAnyHeader()
                    .AllowCredentials();
