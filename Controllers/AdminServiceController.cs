@@ -129,6 +129,17 @@ namespace PetCareSystem.API.Controllers
                 return NotFound("Service not found");
             }
 
+            var hasReferences = await _context.BookingDetails.AnyAsync(bd => bd.ServiceId == serviceId);
+
+            if (hasReferences)
+            {
+                service.IsActive = false;
+                service.UpdatedAt = DateTime.UtcNow;
+                _context.Services.Update(service);
+                await _context.SaveChangesAsync();
+                return Ok("Service has associated bookings and has been marked as inactive.");
+            }
+
             _context.Services.Remove(service);
             await _context.SaveChangesAsync();
 

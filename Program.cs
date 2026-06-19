@@ -121,6 +121,38 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
 
+app.UseExceptionHandler(handler =>
+{
+    handler.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+
+        // Re-apply CORS headers because ExceptionHandler middleware clears them
+        if (context.Request.Headers.TryGetValue("Origin", out var origin))
+        {
+            context.Response.Headers.AccessControlAllowOrigin = origin;
+            context.Response.Headers.AccessControlAllowCredentials = "true";
+            context.Response.Headers.AccessControlAllowMethods = "GET, POST, PUT, DELETE, OPTIONS";
+            context.Response.Headers.AccessControlAllowHeaders = "Content-Type, Authorization, X-Requested-With";
+        }
+
+        var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+        var exception = exceptionHandlerPathFeature?.Error;
+
+        var isDevelopment = app.Environment.IsDevelopment();
+        var responseObj = new
+        {
+            error = "An internal server error occurred.",
+            message = exception?.Message,
+            details = isDevelopment ? exception?.StackTrace : null
+        };
+
+        var result = System.Text.Json.JsonSerializer.Serialize(responseObj);
+        await context.Response.WriteAsync(result);
+    });
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -141,6 +141,18 @@ namespace PetCareSystem.API.Controllers
                 return NotFound("Product not found");
             }
 
+            var hasReferences = await _context.OrderItems.AnyAsync(oi => oi.ProductId == productId) ||
+                                await _context.Feedbacks.AnyAsync(f => f.ProductId == productId);
+
+            if (hasReferences)
+            {
+                product.IsActive = false;
+                product.UpdatedAt = DateTime.UtcNow;
+                _context.Products.Update(product);
+                await _context.SaveChangesAsync();
+                return Ok("Product has associated orders or feedback and has been marked as inactive.");
+            }
+
             _context.Products.Remove(product);
             await _context.SaveChangesAsync();
 
