@@ -21,6 +21,29 @@ namespace PetCareSystem.API.Controllers
         }
 
         /// <summary>
+        /// Tính tổng số lượng và doanh thu của tất cả các đơn hàng đã thanh toán (Paid)
+        /// </summary>
+        [HttpGet("total-paid")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetTotalPaidOrders()
+        {
+            var paidOrders = await _context.Orders
+                .Where(o => o.PaymentStatus == (int)PaymentStatus.Paid)
+                .ToListAsync();
+
+            var totalCount = paidOrders.Count;
+            var totalAmountSum = paidOrders.Sum(o => o.TotalAmount);
+            var finalAmountSum = paidOrders.Sum(o => o.FinalAmount);
+
+            return Ok(new
+            {
+                TotalCount = totalCount,
+                TotalAmount = totalAmountSum,
+                FinalAmount = finalAmountSum
+            });
+        }
+
+        /// <summary>
         /// [Customer] Lấy danh sách tất cả các đơn hàng của người dùng hiện tại
         /// </summary>
         [HttpGet]
